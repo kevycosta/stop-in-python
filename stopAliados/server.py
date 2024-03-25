@@ -1,35 +1,23 @@
-import time
 
-from flask import Flask, session, url_for, redirect, request, flash, jsonify
+from flask import Blueprint, session, url_for, redirect, request, flash, jsonify
 from flask.templating import render_template
-from flask_cors import CORS
-from flask_socketio import SocketIO, emit
 
-from database import Database
-from helpers import login_required
+from .extensions import io
+from .database import Database
+from .helpers import login_required
 
 db = Database()
 
-app = Flask(__name__)
-app.secret_key = '#@34Ask&5$aJ'
+main = Blueprint("main", __name__)
 
-CORS(app)
-
-io = SocketIO(app)
-
-_users_connected = {}
-_round_on = False
-_round_start_time = 0
-_round_max_time = 90
-
-@app.route("/")
+@main.route("/")
 @login_required
 def home():
     user_name = session.get("user_name", None)
     return render_template("home.html", user_name=user_name)
 
 
-@app.route("/login", methods=["GET", "POST"])
+@main.route("/login", methods=["GET", "POST"])
 def login():
     session.clear()
 
@@ -74,13 +62,13 @@ def login():
         return render_template("login.html")
 
 
-@app.route("/logout")
+@main.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
 
 
-@app.route("/create_room", methods=["GET", "POST"])
+@main.route("/create_room", methods=["GET", "POST"])
 @login_required
 def manage_room():
     if request.method == "GET":
@@ -113,7 +101,7 @@ def manage_room():
         return jsonify({'success': True, 'room_id': room_id})
 
 
-@app.route("/play/<room_id>", methods=["GET", "POST"])
+@main.route("/play/<room_id>", methods=["GET", "POST"])
 @login_required
 def play_room(room_id):
     if request.method == "GET":
@@ -139,67 +127,6 @@ def play_room(room_id):
     else:
         return render_template("play.html", room_id=room_id)
 
-
-
-#### IO Sockets ####
-@io.on('connect')
-def handle_connect():
-    print('Client connected')
-
-    register_user_login({
-        "user_id":session.get("user_id"), 
-        "room_id":session.get("room_id")
-    })
-
-
-def register_user_login(event:dict):
-    print("userLogin Event: ", event);
-
-    if event.get("room_id") not in _users_connected:
-        _users_connected[event["room_id"]] = []
-    elif event.get("room_id") in _users_connected:
-        pass
-    else:
-        _users_connected[event["room_id"]].append(event.get("user_id"))
-
-    if len(_users_connected) > 0:
-        dataRoomUsers = db.dcRoomStatus.find_many(where={"room_id" : int(session.get("room_id"))})
-        dataRoomUsersList = [x.model_dump() for x in dataRoomUsers]
-
-        if len(dataRoomUsersList) > 0:
-            for u in _users_connected[session.get("room_id")]:
-                if u['user_id'] not in _users_connected[session.get("room_id")]:
-                    tp_data = {
-                        "room_id" : session.get("room_id"),
-                        "user_id" : u['user_id'],
-                        "user_score" : 0
-                    }
-                    
-                    db.dcRoomStatus.create(tp_data)
-
-    io.emit("allUsersLogged", _users_connected)
-
-def run_background_count():
-    count = _round_start_time
-    _round_on = _round_on
-    
-    while _round_on:
-        count += 1
-        time.sleep(1)
-        io.emit('progress_update', {'progress': 1+count})
-
-        if count == _round_max_time:
-            _round_on = False
-
-@io.on('startRound')
-def start_round():
-    _round_on = True  
-    io.start_background_task(run_background_count)
-
-
-@io.on('finishRound')
-def finish_round():
-    _round_on = False
 
 if __name__ == "__main__":
     io.run(app, debug=True)
