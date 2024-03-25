@@ -1,0 +1,129 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Create Room
+{% endblock %}
+
+{% block main %}
+    <section style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div class="d-flex flex-column align-items-center justify-content-center ">
+            <h2 class="d-inline-flex align-items-center justify-content-center">
+                <i data-feather="list" class="me-2"></i>
+                Lista de Temas (
+                <p id="themes-list-title"
+                    class="p-0 m-0"
+                >0</p>
+                )
+            </h2>
+        
+            <div 
+                id="themes-list" 
+                class="row justify-content-center gap-4 my-4 "
+                style="width: 700px;"
+            >
+                <!-- Themes will be rendered here by JavaScript -->
+            </div>
+            
+            <form class="d-flex gap-2" id="themeForm">
+                <input type="text" name="theme" id="theme-to-add" autocomplete="off" autofocus class="form-control mx-auto w-auto" placeholder="Nome... CEP..">
+                <button
+                    name="create_theme"
+                    id="create_theme_button"
+                    class="btn btn-primary"
+                    type="submit"
+                    onclick="addTheme()"
+                >
+                    <i data-feather="plus"></i>
+                    Adicionar
+                </button>
+            </form>
+        </div>
+
+        <div class="d-flex flex-column align-items-end justify-content-end mt-5 ">
+            {% if get_flashed_messages() %}
+                <div class="alert alert-primary mb-0 text-center" role="alert">
+                    {{ get_flashed_messages() | join(" ") }}
+                </div>
+            {% endif %}
+            <a
+                name=""
+                id=""
+                class="btn btn-danger
+                role="button"
+                onclick="createRoom()"
+                >
+                <i data-feather="play"></i>
+                Criar Sala</a
+            >
+        </div>
+    </section>
+
+    <script>
+        // var collection = [];
+        var collection = [
+            "CEP", "Musica/Banda", "Filme/Serie", "Marca", "Celebridade",
+            "Nome", "MSE", "Profissão", "Parte do Corpo", "Animal", "App/Software"
+        ];
+
+        renderThemes();
+
+        document.getElementById('themeForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+        });
+
+        function addTheme() {
+            var value = document.getElementById("theme-to-add").value;
+            if (!collection.includes(value) && value !== "") {
+                collection.push(String(value).trim());
+                renderThemes()
+            }
+            document.getElementById("theme-to-add").value = "";
+        }
+
+        function renderThemes() {
+            var themesList = document.getElementById("themes-list");
+            themesList.innerHTML = ''; // Clear the list
+            collection.forEach(theme => {
+                var themeDiv = document.createElement("div");
+                // themeDiv.value = theme;
+                themeDiv.className = "fs-5 position-relative d-inline p-2 fw-bolder bg-secondary rounded-3";
+                themeDiv.style = "width: min-content; white-space: nowrap;"
+                themeDiv.innerHTML = `
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" onclick="removeValueFromCollection('${theme}')">X</span>${theme}
+                `;
+                themesList.appendChild(themeDiv);
+            });
+
+            var themesTitle = document.getElementById("themes-list-title");
+            themesTitle.innerHTML = ` ${collection.length}`;
+        }
+
+        function removeValueFromCollection(value) {
+            // console.log(value);
+            collection = collection.filter(item => item !== value);
+            renderThemes();
+        }
+
+        function createRoom() {
+            
+            jsonData = JSON.stringify({
+                themes_list: collection
+            })
+
+            fetch('/create_room', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: jsonData,
+            }).then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = `/play/${data.room_id}`;
+                }
+            });
+        }
+
+    </script>
+    
+{% endblock %}

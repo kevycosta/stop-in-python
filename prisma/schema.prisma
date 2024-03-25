@@ -1,0 +1,79 @@
+datasource db {
+  // could be postgresql or mysql
+  provider = "sqlite"
+  url      = "file:dev.db"
+}
+
+generator db {
+  provider             = "prisma-client-py"
+  interface            = "sync"
+  recursive_type_depth = 5
+}
+
+model mdUsers {
+  user_id       String @id @default(cuid())
+  user_name     String
+  user_login    String
+  user_password String
+
+  dcQuestionsTransactions dcQuestionsTransactions[]
+  dcRoomStatus            dcRoomStatus[]
+  mdAnswers               mdAnswers[]
+  mdRooms                 mdRooms[]
+}
+
+model mdRooms {
+  room_id    Int    @id @default(autoincrement())
+  user_admin String
+
+  dcQuestionsTransactions dcQuestionsTransactions[]
+  mdQuestions             mdQuestions[]
+  dcRoomRound             dcRoomRound[]
+  userAdm                 mdUsers                   @relation(fields: [user_admin], references: [user_id])
+}
+
+model dcRoomStatus {
+  room_id    Int
+  user_id    String @id
+  user_score Int    @default(0)
+
+  user mdUsers @relation(fields: [user_id], references: [user_id])
+}
+
+model dcRoomRound {
+  room_id       Int @id
+  current_round Int @default(0)
+
+  room mdRooms @relation(fields: [room_id], references: [room_id])
+}
+
+model mdQuestions {
+  question_id    Int    @id @default(autoincrement())
+  room_id        Int
+  question_title String
+
+  rooms                   mdRooms                   @relation(fields: [room_id], references: [room_id])
+  dcQuestionsTransactions dcQuestionsTransactions[]
+}
+
+model mdAnswers {
+  answer_id    Int    @id @default(autoincrement())
+  user_id      String
+  answer_value String
+
+  dcQuestionsTransactions dcQuestionsTransactions[]
+  user                    mdUsers                   @relation(fields: [user_id], references: [user_id])
+}
+
+model dcQuestionsTransactions {
+  question_id     Int    @id
+  user_id         String
+  room_id         Int
+  answer_id       Int
+  question_result Int
+
+  user     mdUsers     @relation(fields: [user_id], references: [user_id])
+  rooms    mdRooms     @relation(fields: [room_id], references: [room_id])
+  question mdQuestions @relation(fields: [question_id], references: [question_id])
+  answer   mdAnswers   @relation(fields: [answer_id], references: [answer_id])
+}
