@@ -1,7 +1,7 @@
 from prisma import Prisma, register
 from prisma.models import (
     mdUsers, mdRooms, dcRoomStatus, dcRoomRound,
-    mdQuestions, mdAnswers, dcQuestionsTransactions
+    mdQuestions, dcQuestionsTransactions
 )
 
 db = Prisma()
@@ -19,7 +19,6 @@ class Database():
         self.dcRoomRound = dcRoomRound.prisma()
         self.dcRoomStatus = dcRoomStatus.prisma()
         self.mdQuestions = mdQuestions.prisma()
-        self.mdAnswers = mdAnswers.prisma()
         self.dcQuestionsTransactions = dcQuestionsTransactions.prisma()
 
     def connect(self):
@@ -34,6 +33,9 @@ class Database():
     
     def __del__(self):
         self.db.disconnect()
+
+    def query_db(self, query:str):
+        return self.db.query_raw(query=query)
     
     def __str__(self) -> str:
         return f"Prisma Database Stop Game class {self.db}"

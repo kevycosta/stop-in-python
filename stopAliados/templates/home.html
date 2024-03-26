@@ -7,28 +7,45 @@
 {% block main %}
     <h2>Bem Vindo {{ user_name }}</h2>
 
-    <form>
-        <input type="text" name="user_id" value="{{session.get('user_id')}}" class="d-none ">
-        <input type="text" name="user_name" value="{{session.get('user_name')}}" class="d-none ">
+    <div class="d-flex justify-content-center align-items-center ">
         <button
             name="ready"
             id="ready-button"
-            class="btn btn-primary"
-            type="submit"
+            class="btn btn-primary me-4"
+            onclick="showOpenRooms()"
         >
             Jogar
         </button>
-    </form>
+        <a
+            name=""
+            id=""
+            class="btn btn-primary"
+            href="/create_room"
+            role="button"
+        >
+            Criar Sala
+        </a>
+    </div>
 
-    <a
-        name=""
-        id=""
-        class="btn btn-primary"
-        href="/create_room"
-        role="button"
-    >
-        Criar Sala
-    </a
-    >
+    <div style="display: none;" id="hidden_rooms">
+        {% for element in rooms_list %}
+            <div class="card bg-dark border-1 border-secondary " style="width: 18rem;">
+                <h1>{{ element.room_id}}</h1>
+                <div class="card-body">
+                    <h5 class="card-title">Sala {{ element.room_id}}</h5>
+                    <a href="/play/{{ element.room_id }}" class="btn btn-primary">Entrar</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        var salasDisponiveis = []
+        
+        function showOpenRooms() {
+            document.getElementById("hidden_rooms").style.display = "flex";
+        }
+
+    </script>
 
 {% endblock %}

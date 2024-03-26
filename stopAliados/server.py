@@ -2,11 +2,9 @@
 from flask import Blueprint, session, url_for, redirect, request, flash, jsonify
 from flask.templating import render_template
 
-from .extensions import io
-from .database import Database
+from .extensions import io, db
 from .helpers import login_required
-
-db = Database()
+from .handlers import get_all_open_rooms
 
 main = Blueprint("main", __name__)
 
@@ -14,7 +12,14 @@ main = Blueprint("main", __name__)
 @login_required
 def home():
     user_name = session.get("user_name", None)
-    return render_template("home.html", user_name=user_name)
+
+    rooms_list = get_all_open_rooms()
+
+    return render_template(
+        "home.html", 
+        user_name=user_name, 
+        rooms_list=rooms_list
+    )
 
 
 @main.route("/login", methods=["GET", "POST"])
@@ -101,7 +106,7 @@ def manage_room():
         return jsonify({'success': True, 'room_id': room_id})
 
 
-@main.route("/play/<room_id>", methods=["GET", "POST"])
+@main.route("/play/<room_id>", methods=["GET"])
 @login_required
 def play_room(room_id):
     if request.method == "GET":
@@ -124,9 +129,4 @@ def play_room(room_id):
             is_admin=is_admin,
             current_round=current_round
         )
-    else:
-        return render_template("play.html", room_id=room_id)
-
-
-if __name__ == "__main__":
-    io.run(app, debug=True)
+    

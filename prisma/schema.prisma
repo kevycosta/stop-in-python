@@ -18,7 +18,6 @@ model mdUsers {
 
   dcQuestionsTransactions dcQuestionsTransactions[]
   dcRoomStatus            dcRoomStatus[]
-  mdAnswers               mdAnswers[]
   mdRooms                 mdRooms[]
 }
 
@@ -56,24 +55,17 @@ model mdQuestions {
   dcQuestionsTransactions dcQuestionsTransactions[]
 }
 
-model mdAnswers {
-  answer_id    Int    @id @default(autoincrement())
-  user_id      String
-  answer_value String
-
-  dcQuestionsTransactions dcQuestionsTransactions[]
-  user                    mdUsers                   @relation(fields: [user_id], references: [user_id])
-}
-
 model dcQuestionsTransactions {
-  question_id     Int    @id
+  transaction_id  Int     @id @default(autoincrement())
+  question_id     Int
   user_id         String
   room_id         Int
-  answer_id       Int
-  question_result Int
+  round           Int
+  letter_in_round String
+  question_value  String?
+  question_votes  Int
 
   user     mdUsers     @relation(fields: [user_id], references: [user_id])
   rooms    mdRooms     @relation(fields: [room_id], references: [room_id])
   question mdQuestions @relation(fields: [question_id], references: [question_id])
-  answer   mdAnswers   @relation(fields: [answer_id], references: [answer_id])
 }
