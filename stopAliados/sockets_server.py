@@ -26,7 +26,14 @@ def handle_connect():
             where={"room_id":int(session.get("room_id"))}
         ).current_round 
 
-    io.emit("newUserLogged", get_all_users_in_a_room(int(session.get("room_id"))))
+    data_dict = {
+        "users_data" : get_all_users_in_a_room(int(session.get("room_id"))),
+        "room_id" : round_manager.room_id,
+        "current_round" : round_manager.current_round,
+        "random_letter" : round_manager.letter_in_round
+    }
+
+    io.emit("inUserConnect", data_dict)
 
 @io.on("disconnect")
 def handle_disconnect():
@@ -59,7 +66,8 @@ def finish_round(data):
     )
 
     round_manager.finish_round()
+    round_manager.evaluatingVotes()
 
 @io.on("finishEvaluation")
 def finish_evaluation():
-    round_manager.finish_evaluation()
+    round_manager.evaluatingVotes()

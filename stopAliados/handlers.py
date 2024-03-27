@@ -11,9 +11,11 @@ class RoundManager:
         self.room_id = 0
         self.round_on = False
         self.letter_in_round = ""
-        self.current_round = 0
+        self.current_round = 1
         self.round_max_time = 90
         self.under_evaluation = False
+        self.question_theme_to_evaluate = ""
+        self.themes_data = get_all_themes_by_round(self.room_id)
 
     def run_background_count(self):
         while self.round_on:
@@ -41,6 +43,13 @@ class RoundManager:
             print(f"Starting Round {self.current_round}!")
             self.round_on = True
             self.random_letter()
+
+            round_info_dict = {
+                "random_letter" : self.letter_in_round,
+                "current_round" : self.current_round
+            }
+
+            io.emit("roundInfo", round_info_dict)
             self.run_background_count()
 
     def finish_round(self):
@@ -48,12 +57,20 @@ class RoundManager:
         self.round_on = False
         self.count = 0 
 
-        io.emit("evaluating", self.start_evaluation()) # Start evaluating on frontend
+        self.start_evaluation()
     
     def start_evaluation(self):
         print("Starting evaluation of questions !!!")
         self.under_evaluation = True
-        return self.under_evaluation
+
+        answers_data = get_all_answers_by_round(self.room_id, self.current_round)
+
+        evaluation_dict = {
+            "evaluation_status" : self.under_evaluation,
+            "answers_data" : answers_data
+        }
+
+        io.emit("evaluating", evaluation_dict) # Start evaluating on frontend
     
     def finish_evaluation(self):
         print("Finishing evaluation of questions !!!")
@@ -63,11 +80,27 @@ class RoundManager:
             where={"room_id":self.room_id}
         ).current_round
 
-        io.emit("evaluating", self.under_evaluation)
+        evaluation_dict = {
+            "evaluation_status" : self.under_evaluation,
+        }
+
+        io.emit("evaluating", evaluation_dict)
         
         self.next_round()
+    
+    def evaluatingVotes(self):
+        next_theme = self.get_next_theme()
+        if next_theme:
+            io.emit('roundTheme', next_theme)
+        else:
+            self.finish_evaluation()
 
-
+    def get_next_theme(self):
+        if self.themes_data:
+            return self.themes_data.pop(0)
+        return None
+        
+        
 
 def register_round_answers(
         room_id: int,
@@ -144,4 +177,44 @@ def get_all_open_rooms():
     dataRoomsList = [x.model_dump() for x in dataRoomRound]
 
     return dataRoomsList
+    
+
+def get_all_answers_by_round(room_id:int, round:int):
+    query = f"""
+        select 
+        dqt.question_id,
+        mq.question_title,
+        dqt.user_id,
+        mu.user_name,
+        dqt.room_id,
+        dqt.round,
+        dqt.letter_in_round,
+        dqt.question_value,
+        dqt.question_votes
+        from dcQuestionsTransactions as dqt
+        inner join mdUsers mu
+            on dqt.user_id = mu.user_id
+        inner join mdQuestions mq
+            on dqt.question_id = mq.question_id
+        where dqt.room_id = {int(room_id)}
+        and dqt.round = {int(round)}
+    """
+
+    answers_data = db.query_db(query)
+
+    return answers_data
+
+
+def get_all_themes_by_round(room_id:int):
+    query = f"""
+        select distinct
+        mq.question_id,
+        mq.question_title
+        from mdQuestions mq
+        where mq.room_id = {int(room_id)}
+    """
+
+    themes_data = db.query_db(query)
+
+    return themes_data
 

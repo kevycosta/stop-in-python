@@ -129,4 +129,3 @@ def play_room(room_id):
             is_admin=is_admin,
             current_round=current_round
         )
-    

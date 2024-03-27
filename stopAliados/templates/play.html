@@ -7,7 +7,7 @@
 {% block main %}
     <section style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
         <div class="d-flex align-items-center justify-content-center bg-black rounded-2 p-4 w-75">
-            <h1>Rodadas: {{current_round}} / 10</h1>
+            <h1>Rodadas: &nbsp<h1 id="current-round-item">0</h1> / 12</h1>
             <div class="mx-4 bg-white d-flex rounded-3" style="padding: 0px 1px; height: 40px;"></div>
             <h1 class="d-inline-flex">Sala &nbsp<div class="fw-bold " id="room_id_value">{{room_id}}</div></h1>
             {% if is_admin %}
@@ -49,7 +49,10 @@
             >
                 <div class="d-inline-flex justify-content-center align-items-center">
                     <h2 class="fw-bolder fs-3 me-4">Preencha os Campos</h2>
-                    <span class="badge bg-danger fs-3 fw-bold">M</span>
+                    <span 
+                        id="random-letter-item"
+                        class="badge bg-danger fs-3 fw-bold"
+                    ></span>
                 </div>
                 <form id="questions_form" class="row row-cols-3">
                     {% for element in themes_data %}
@@ -88,9 +91,18 @@
             class="align-items-start justify-content-center w-100"
         >
         <div class="d-flex align-items-center justify-content-center ">
+            <div>
+                TEMA: 
+                <h1 id="theme-round-id"></h1>
+            </div>
+
+            <div
+                id="evaluating-questions" 
+                class="d-flex align-items-center justify-content-center w-100"
+            ></div>
             <button
                 type="button"
-                class="btn btn-danger w-25 fw-bold"
+                class="btn btn-danger fw-bold"
                 id="stop-evaluating-button"
                 onclick="finishEvaluating()"
             >
@@ -103,19 +115,34 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
     <script>
+        ///////// Variables
         var evaluating = false;
+        var roundOn = true;
+        var currentRound = 0;
+        var roundLetter = "";
+        
         const socket = io({autoConnect: false});
+        
 
+        ///////// Socket's
         socket.connect();
 
         socket.on('connect', () => {
             console.log('Connected to Socket.IO server');
         });
 
+        socket.on('roundInfo', (data) => {
+            currentRound = data.current_round;
+            roundLetter = data.random_letter;
+
+            updateRoundAndLetter();
+        });
+        
         socket.on('evaluating', (status) => {
-            evaluating = status;
+            evaluating = status.evaluation_status;
+            console.log(status.answers_data);
             if (evaluating) {
-                console.log('startando votação!');
+                console.log('Startando votação!');
                 document.getElementById("round-play").style.display = "none";
                 document.getElementById("round-evaluating").style.display = "flex";
             } else {
@@ -124,20 +151,16 @@
             }
         });
 
-        function startRound () {
-            socket.emit('startRound');
-        }
-
-        function finishRound () {
-            data = postQuestionsResult();
-            socket.emit('finishRound', data);
-        }
-
-        // fun
-
-        function finishEvaluating() {
-            socket.emit('finishEvaluation');
-        }
+        socket.on('inUserConnect', (data) => {
+            console.log('On User connection: ', data);
+            
+            currentRound = data.current_round;
+            roundLetter = data.random_letter;
+            updateRoundAndLetter();
+            
+            users_data = data.users_data;
+            renderUsersLogged(users_data);
+        });
 
         socket.on('progress_update', (data) => {
             // console.log('Test', data);
@@ -147,11 +170,40 @@
 
             progressBar.style.width = percent + '%';
             progressBar.setAttribute("aria-valuenow", String(percent));
-
+            
             if (percent == 100) {
                 finishRound();
             }
         });
+
+        socket.on('roundTheme', (data) => {
+            document.getElementById("theme-round-id").innerHTML = data.question_title;
+        });
+
+        ///////// Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('questions_form');
+            const inputs = form.querySelectorAll('input');
+
+            inputs.forEach(input => {
+                input.addEventListener('input', validateForm);
+            });
+        });
+
+
+        ///////// Functions Handlers
+        function startRound () {
+            socket.emit('startRound');
+        }
+
+        function finishRound () {
+            data = postQuestionsResult();
+            socket.emit('finishRound', data);
+        }
+
+        function finishEvaluating() {
+            socket.emit('finishEvaluation');
+        }
 
         function postQuestionsResult() {
             const form = document.getElementById('questions_form');
@@ -190,18 +242,15 @@
             submitButton.disabled = !allValid;
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('questions_form');
-            const inputs = form.querySelectorAll('input');
+        function updateRoundAndLetter() {
+            const letterItem = document.getElementById("random-letter-item");
+            letterItem.innerHTML = roundLetter;
 
-            inputs.forEach(input => {
-                input.addEventListener('input', validateForm);
-            });
-        });
+            const currentRoundItem = document.getElementById("current-round-item");
+            currentRoundItem.innerHTML = currentRound;
+        }
 
-        socket.on('newUserLogged', (data) => {
-            console.log('Users connected: ', data);
-
+        function renderUsersLogged(data) {
             const container = document.getElementById('users-container');
             container.innerHTML = '';
 
@@ -242,7 +291,7 @@
 
                 feather.replace();
             });
-        });
+        }
 
     </script>
 
