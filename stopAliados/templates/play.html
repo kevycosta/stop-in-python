@@ -17,6 +17,15 @@
                 >
                     START GAME
                 </button>
+                <button
+                    type="button"
+                    style="display: none;"
+                    class="ms-4 btn btn-danger fw-bold"
+                    id="stop-evaluating-button"
+                    onclick="finishEvaluating()"
+                >
+                    FINALIZAR VOTAÇÃO
+                </button>
             {% endif %}
         </div>
         <div class="progress mt-1 mb-4" style="width: 75%;">
@@ -88,26 +97,27 @@
         <div 
             id="round-evaluating"
             style="display: none;" 
-            class="align-items-start justify-content-center w-100"
+            class="align-items-start justify-content-center w-75"
         >
-        <div class="d-flex align-items-center justify-content-center ">
-            <div>
+        <div class="d-flex flex-column align-items-center justify-content-center ">
+            <div class="mb-4">
                 TEMA: 
-                <h1 id="theme-round-id"></h1>
+                <h1 id="theme-round-id" class="fw-bold "></h1>
             </div>
 
             <div
                 id="evaluating-questions" 
-                class="d-flex align-items-center justify-content-center w-100"
-            ></div>
-            <button
-                type="button"
-                class="btn btn-danger fw-bold"
-                id="stop-evaluating-button"
-                onclick="finishEvaluating()"
+                class="d-flex align-items-center justify-content-center w-100 gap-4"
             >
-                FINALIZAR VOTAÇÃO
-            </button>
+                <!-- <div id="{{question_id}}" class="p-4 bg-black rounded-3 position-relative">
+                    <p class="p-0 m-0 position-absolute top-0">{{user_name}}</p>
+                    <h1 class="fs-3 fw-bold text-nowrap m-0 p-0">{{question_title}}</h1>
+                    <div class="d-inline-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-primary" (onclick)="handleVotes('OK', {{question_id}})">OK</button>
+                        <button type="button" class="btn btn-sm btn-danger" (onclick)="handleVotes('NOK', {{question_id}})">NOK</button>
+                    </div>
+                </div> -->
+            </div>
         </div>
 
         </div>
@@ -120,6 +130,9 @@
         var roundOn = true;
         var currentRound = 0;
         var roundLetter = "";
+        var roundTheme = "";
+        var user_id = "";
+        var votes = [];
         
         const socket = io({autoConnect: false});
         
@@ -140,30 +153,29 @@
         
         socket.on('evaluating', (status) => {
             evaluating = status.evaluation_status;
-            console.log(status.answers_data);
-            if (evaluating) {
-                console.log('Startando votação!');
-                document.getElementById("round-play").style.display = "none";
-                document.getElementById("round-evaluating").style.display = "flex";
-            } else {
-                document.getElementById("round-play").style.display = "flex";
-                document.getElementById("round-evaluating").style.display = "none";
-            }
+            handleOnEvaluation(evaluating);
         });
 
         socket.on('inUserConnect', (data) => {
             console.log('On User connection: ', data);
+            user_id = data.user_id;
             
-            currentRound = data.current_round;
-            roundLetter = data.random_letter;
-            updateRoundAndLetter();
-            
-            users_data = data.users_data;
-            renderUsersLogged(users_data);
+            setTimeout(() => {
+                evaluating = data.under_evaluation;
+                handleOnEvaluation(evaluating);
+
+                currentRound = data.current_round;
+                roundLetter = data.random_letter;
+                updateRoundAndLetter();
+                
+                users_data = data.users_data;
+                renderUsersLogged(users_data);
+
+                document.getElementById("theme-round-id").innerHTML = data.current_theme.question_title;
+            }, 500)
         });
 
         socket.on('progress_update', (data) => {
-            // console.log('Test', data);
             let value = data.progress;
             var progressBar = document.getElementById('progressBar');
             let percent = Math.round((value / 90) * 100);
@@ -177,7 +189,10 @@
         });
 
         socket.on('roundTheme', (data) => {
-            document.getElementById("theme-round-id").innerHTML = data.question_title;
+            roundTheme = data.current_theme.question_title;
+            document.getElementById("theme-round-id").innerHTML = roundTheme;
+
+            renderQuestions(data.answers_data);
         });
 
         ///////// Listeners
@@ -293,6 +308,67 @@
             });
         }
 
+        function handleOnEvaluation(evaluating) {
+            if (evaluating) {
+                console.log('Startando votação!');
+                document.getElementById("round-play").style.display = "none";
+                document.getElementById("round-evaluating").style.display = "flex";
+                document.getElementById("stop-evaluating-button").style.display = "flex";
+            } else {
+                document.getElementById("round-play").style.display = "flex";
+                document.getElementById("round-evaluating").style.display = "none";
+                document.getElementById("stop-evaluating-button").style.display = "none";
+            }
+        }
+
+        function handleVotes() {
+            // let tempObj = {
+            //     ""
+            // }
+        }
+
+        function renderQuestions(questions) {
+            var container = document.getElementById('evaluating-questions');
+            container.innerHTML = ''; // Clear the container
+
+            questions.forEach(function(question) {
+                var div = document.createElement('div');
+                div.id = question.question_id;
+                div.className = "p-4 bg-black rounded-3 position-relative";
+
+                var userName = document.createElement('p');
+                userName.className = "p-0 m-0 position-absolute top-0";
+                userName.textContent = question.user_name;
+
+                var questionTitle = document.createElement('h1');
+                questionTitle.className = "fs-3 fw-bold text-nowrap m-0 p-0";
+                questionTitle.textContent = question.question_value;
+
+                var buttonsDiv = document.createElement('div');
+                buttonsDiv.className = "d-inline-flex gap-2 mt-2";
+
+                var okButton = document.createElement('button');
+                okButton.type = "button";
+                okButton.className = "btn btn-sm btn-primary";
+                okButton.textContent = "OK";
+                okButton.onclick = function() { handleVotes('OK', question.question_id); };
+
+                var nokButton = document.createElement('button');
+                nokButton.type = "button";
+                nokButton.className = "btn btn-sm btn-danger";
+                nokButton.textContent = "NOK";
+                nokButton.onclick = function() { handleVotes('NOK', question.question_id); };
+
+                buttonsDiv.appendChild(okButton);
+                buttonsDiv.appendChild(nokButton);
+
+                div.appendChild(userName);
+                div.appendChild(questionTitle);
+                div.appendChild(buttonsDiv);
+
+                container.appendChild(div);
+            });
+        }
     </script>
 
 {% endblock %}

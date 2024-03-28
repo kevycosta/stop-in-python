@@ -10,12 +10,13 @@ class RoundManager:
         self.count = 0
         self.room_id = 0
         self.round_on = False
+        self.under_evaluation = False
         self.letter_in_round = ""
         self.current_round = 1
         self.round_max_time = 90
-        self.under_evaluation = False
         self.question_theme_to_evaluate = ""
-        self.themes_data = get_all_themes_by_round(self.room_id)
+        self.themes_data = []
+        self.current_theme = ""
 
     def run_background_count(self):
         while self.round_on:
@@ -63,12 +64,12 @@ class RoundManager:
         print("Starting evaluation of questions !!!")
         self.under_evaluation = True
 
-        answers_data = get_all_answers_by_round(self.room_id, self.current_round)
-
         evaluation_dict = {
             "evaluation_status" : self.under_evaluation,
-            "answers_data" : answers_data
         }
+
+        if len(self.themes_data) == 0:
+            self.themes_data = get_all_themes_by_round(self.room_id)
 
         io.emit("evaluating", evaluation_dict) # Start evaluating on frontend
     
@@ -89,13 +90,22 @@ class RoundManager:
         self.next_round()
     
     def evaluatingVotes(self):
-        next_theme = self.get_next_theme()
-        if next_theme:
-            io.emit('roundTheme', next_theme)
+        self.current_theme = self.get_next_theme()
+        print("Current theme: ", self.current_theme)
+        if self.current_theme:
+            answers_data = get_all_answers_by_round(
+                self.room_id, self.current_round, self.current_theme.get("question_id"))
+            
+            current_theme_dict = {
+                "current_theme" : self.current_theme,
+                "answers_data" : answers_data
+            }
+            io.emit('roundTheme', current_theme_dict)
         else:
             self.finish_evaluation()
 
     def get_next_theme(self):
+        print("Themes in list: ", self.themes_data)
         if self.themes_data:
             return self.themes_data.pop(0)
         return None
@@ -179,7 +189,7 @@ def get_all_open_rooms():
     return dataRoomsList
     
 
-def get_all_answers_by_round(room_id:int, round:int):
+def get_all_answers_by_round(room_id:int, round:int, current_theme:int):
     query = f"""
         select 
         dqt.question_id,
@@ -198,6 +208,7 @@ def get_all_answers_by_round(room_id:int, round:int):
             on dqt.question_id = mq.question_id
         where dqt.room_id = {int(room_id)}
         and dqt.round = {int(round)}
+        and dqt.question_id = {int(current_theme)}
     """
 
     answers_data = db.query_db(query)

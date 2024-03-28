@@ -28,9 +28,12 @@ def handle_connect():
 
     data_dict = {
         "users_data" : get_all_users_in_a_room(int(session.get("room_id"))),
+        "user_id" : session.get("user_id"),
         "room_id" : round_manager.room_id,
         "current_round" : round_manager.current_round,
-        "random_letter" : round_manager.letter_in_round
+        "random_letter" : round_manager.letter_in_round,
+        "under_evaluation" : round_manager.under_evaluation,
+        "current_theme" : round_manager.current_theme
     }
 
     io.emit("inUserConnect", data_dict)
