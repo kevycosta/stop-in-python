@@ -6,6 +6,9 @@ from .extensions import io, db
 from .helpers import login_required
 from .handlers import get_all_open_rooms
 
+import nltk
+import random
+
 main = Blueprint("main", __name__)
 
 @main.route("/")
@@ -114,6 +117,15 @@ def play_room(room_id):
 
         questions_data = db.mdQuestions.find_many(where={"room_id" : int(room_id)})
         questions_array = [x.model_dump() for x in questions_data]
+        
+        nltk.download('floresta')
+        portuguese_words = list(nltk.corpus.floresta.words())
+        random_words = random.sample(portuguese_words, 100)
+
+        temp_question_array = []
+        for item in questions_array:
+            item['random_answer'] = random.choice(random_words)
+            temp_question_array.append(item)
 
         user_adm = db.mdRooms.find_first(where={"room_id" : int(room_id)}).user_admin
         print("user_adm", user_adm)
@@ -125,7 +137,7 @@ def play_room(room_id):
         return render_template(
             "play.html", 
             room_id=room_id,
-            themes_data=questions_array,
+            themes_data=temp_question_array,
             is_admin=is_admin,
             current_round=current_round
         )

@@ -57,6 +57,7 @@ class RoundManager:
         print(f"Finishing Round ! {self.current_round}")
         self.round_on = False
         self.count = 0 
+        updateUserPoints(self.room_id)
 
         self.start_evaluation()
     
@@ -127,11 +128,10 @@ def register_round_answers(
             "room_id" : room_id,
             "round" : current_round,
             "letter_in_round" : letter_in_round,
-            "question_value" : item.get("question_value", ""),
-            "question_votes" : 0
+            "question_value" : str(item.get("question_value", "")).upper()
         }
 
-        db.dcQuestionsTransactions.create(insert_dict)
+        db.dcQuestionsAnswers.create(insert_dict)
 
 
 def register_user_login(event:dict):
@@ -199,9 +199,8 @@ def get_all_answers_by_round(room_id:int, round:int, current_theme:int):
         dqt.room_id,
         dqt.round,
         dqt.letter_in_round,
-        dqt.question_value,
-        dqt.question_votes
-        from dcQuestionsTransactions as dqt
+        dqt.question_value
+        from dcQuestionsAnswers as dqt
         inner join mdUsers mu
             on dqt.user_id = mu.user_id
         inner join mdQuestions mq
@@ -229,3 +228,51 @@ def get_all_themes_by_round(room_id:int):
 
     return themes_data
 
+
+def register_votes_results(room_id:int, user_id:str, data):
+    for item in data:
+        data_to_insert = {}
+        data_to_insert['question_id'] = item.get("question_id")
+        data_to_insert['room_id'] = room_id
+        data_to_insert['round'] = item.get("round")
+        data_to_insert['question_value'] = item.get("question_value")
+        data_to_insert['author_answer_user_id'] = item.get("author_answer_user_id")
+        data_to_insert['author_vote_user_id'] = user_id
+        data_to_insert['vote'] = item.get("vote")
+
+        db.dcAnswersTransactions.create(data=data_to_insert)
+
+
+def transactionsPointsByRound(room_id:int):
+    query_result = db.query_db(f"""
+        select 
+        dt.author_answer_user_id,
+        SUM(CASE WHEN dt.vote > 0 THEN 5 ELSE 0 END) as vote_result
+        from (
+            select dat.author_answer_user_id , 
+            dat.question_value ,
+            dat.round,
+            SUM(dat.vote) as vote
+            from dcAnswersTransactions dat 
+            where dat.room_id = {room_id}
+            GROUP BY dat.author_answer_user_id , 
+            dat.question_value,
+            dat.round
+        ) as dt
+        GROUP BY 
+        dt.author_answer_user_id
+    """)
+
+    data = [x for x in query_result]
+
+    return data
+
+
+def updateUserPoints(room_id:int):
+    roundResultsData = transactionsPointsByRound(room_id=room_id)
+
+    for item in roundResultsData:
+        db.dcRoomStatus.update_many(
+            data={"user_score" : item["vote_result"]},
+            where={"room_id" : room_id, "user_id" : item["author_answer_user_id"]}
+        )

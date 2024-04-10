@@ -1,7 +1,7 @@
 from prisma import Prisma, register
 from prisma.models import (
     mdUsers, mdRooms, dcRoomStatus, dcRoomRound,
-    mdQuestions, dcQuestionsTransactions
+    mdQuestions, dcQuestionsAnswers, dcAnswersTransactions
 )
 
 db = Prisma()
@@ -19,7 +19,8 @@ class Database():
         self.dcRoomRound = dcRoomRound.prisma()
         self.dcRoomStatus = dcRoomStatus.prisma()
         self.mdQuestions = mdQuestions.prisma()
-        self.dcQuestionsTransactions = dcQuestionsTransactions.prisma()
+        self.dcQuestionsAnswers = dcQuestionsAnswers.prisma()
+        self.dcAnswersTransactions = dcAnswersTransactions.prisma()
 
     def connect(self):
         if not self.is_connected():

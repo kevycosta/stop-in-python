@@ -16,24 +16,26 @@ model mdUsers {
   user_login    String
   user_password String
 
-  dcQuestionsTransactions dcQuestionsTransactions[]
-  dcRoomStatus            dcRoomStatus[]
-  mdRooms                 mdRooms[]
+  dcQuestionsAnswers dcQuestionsAnswers[]
+  dcRoomStatus       dcRoomStatus[]
+  mdRooms            mdRooms[]
 }
 
 model mdRooms {
   room_id    Int    @id @default(autoincrement())
   user_admin String
 
-  dcQuestionsTransactions dcQuestionsTransactions[]
-  mdQuestions             mdQuestions[]
-  dcRoomRound             dcRoomRound[]
-  userAdm                 mdUsers                   @relation(fields: [user_admin], references: [user_id])
+  dcQuestionsAnswers    dcQuestionsAnswers[]
+  mdQuestions           mdQuestions[]
+  dcRoomRound           dcRoomRound[]
+  userAdm               mdUsers                 @relation(fields: [user_admin], references: [user_id])
+  dcAnswersTransactions dcAnswersTransactions[]
 }
 
 model dcRoomStatus {
+  status_id  Int    @id @default(autoincrement())
   room_id    Int
-  user_id    String @id
+  user_id    String
   user_score Int    @default(0)
 
   user mdUsers @relation(fields: [user_id], references: [user_id])
@@ -51,21 +53,37 @@ model mdQuestions {
   room_id        Int
   question_title String
 
-  rooms                   mdRooms                   @relation(fields: [room_id], references: [room_id])
-  dcQuestionsTransactions dcQuestionsTransactions[]
+  rooms                 mdRooms                 @relation(fields: [room_id], references: [room_id])
+  dcQuestionsAnswers    dcQuestionsAnswers[]
+  dcAnswersTransactions dcAnswersTransactions[]
 }
 
-model dcQuestionsTransactions {
-  transaction_id  Int     @id @default(autoincrement())
-  question_id     Int
-  user_id         String
-  room_id         Int
-  round           Int
-  letter_in_round String
-  question_value  String?
-  question_votes  Int
+model dcQuestionsAnswers {
+  answer_transaction_id Int      @id @default(autoincrement())
+  question_id           Int
+  room_id               Int
+  round                 Int
+  letter_in_round       String
+  user_id               String
+  question_value        String?
+  transaction_time      DateTime @default(now())
 
   user     mdUsers     @relation(fields: [user_id], references: [user_id])
+  rooms    mdRooms     @relation(fields: [room_id], references: [room_id])
+  question mdQuestions @relation(fields: [question_id], references: [question_id])
+}
+
+model dcAnswersTransactions {
+  transaction_id        Int      @id @default(autoincrement())
+  question_id           Int
+  room_id               Int
+  round                 Int
+  author_answer_user_id String
+  author_vote_user_id   String
+  question_value        String
+  vote                  Int      @default(1)
+  transaction_time      DateTime @default(now())
+
   rooms    mdRooms     @relation(fields: [room_id], references: [room_id])
   question mdQuestions @relation(fields: [question_id], references: [question_id])
 }

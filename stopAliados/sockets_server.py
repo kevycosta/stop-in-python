@@ -5,7 +5,8 @@ from .handlers import (
     register_user_login, 
     cancel_register_user_login,
     get_all_users_in_a_room,
-    register_round_answers
+    register_round_answers,
+    register_votes_results
 )
 
 # Initialize the RoundManager
@@ -38,23 +39,31 @@ def handle_connect():
 
     io.emit("inUserConnect", data_dict)
 
+
 @io.on("disconnect")
 def handle_disconnect():
     print('Client disconnected')
 
-    cancel_register_user_login({
-        "user_id":session.get("user_id"), 
-        "room_id":session.get("room_id")
-    })
+    # cancel_register_user_login({
+    #     "user_id":session.get("user_id"), 
+    #     "room_id":session.get("room_id")
+    # })
 
     io.emit("newUserLogged", get_all_users_in_a_room(int(session.get("room_id"))))
+
 
 @io.on('startRound')
 def start_round():
     round_manager.start_round()
 
+
 @io.on('finishRound')
-def finish_round(data):
+def finish_round():
+    io.emit("roundServerFinish")
+
+
+@io.on('roundServerFinish')
+def server_finish_round_for_all_users(data):
     print(data)
 
     room_id = int(session.get("room_id"))
@@ -71,6 +80,23 @@ def finish_round(data):
     round_manager.finish_round()
     round_manager.evaluatingVotes()
 
+
 @io.on("finishEvaluation")
 def finish_evaluation():
+    io.emit("serverFinishEvaluation")
     round_manager.evaluatingVotes()
+
+
+@io.on("serverFinishEvaluation")
+def server_finish_evaluation_votes(data):
+    room_id = int(session.get("room_id"))
+    user_id = session.get("user_id")
+
+    print(f"Results of {user_id} in room_id: {room_id}", data);
+
+    register_votes_results(
+        room_id=room_id, 
+        user_id=user_id, 
+        data=data
+    )
+

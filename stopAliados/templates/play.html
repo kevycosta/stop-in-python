@@ -74,7 +74,7 @@
                                 autocomplete="off" 
                                 autofocus 
                                 class="form-control mx-auto w-auto"
-                                value="fantastico"
+                                value="{{element.random_answer}}"
                                 required
                             >      
                         </div>
@@ -108,16 +108,7 @@
             <div
                 id="evaluating-questions" 
                 class="d-flex align-items-center justify-content-center w-100 gap-4"
-            >
-                <!-- <div id="{{question_id}}" class="p-4 bg-black rounded-3 position-relative">
-                    <p class="p-0 m-0 position-absolute top-0">{{user_name}}</p>
-                    <h1 class="fs-3 fw-bold text-nowrap m-0 p-0">{{question_title}}</h1>
-                    <div class="d-inline-flex gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-primary" (onclick)="handleVotes('OK', {{question_id}})">OK</button>
-                        <button type="button" class="btn btn-sm btn-danger" (onclick)="handleVotes('NOK', {{question_id}})">NOK</button>
-                    </div>
-                </div> -->
-            </div>
+            ></div>
         </div>
 
         </div>
@@ -148,7 +139,7 @@
             currentRound = data.current_round;
             roundLetter = data.random_letter;
 
-            updateRoundAndLetter();
+            updateRoundAndLetter(data.random_letter, data.current_round);
         });
         
         socket.on('evaluating', (status) => {
@@ -164,9 +155,7 @@
                 evaluating = data.under_evaluation;
                 handleOnEvaluation(evaluating);
 
-                currentRound = data.current_round;
-                roundLetter = data.random_letter;
-                updateRoundAndLetter();
+                updateRoundAndLetter(data.random_letter, data.current_round);
                 
                 users_data = data.users_data;
                 renderUsersLogged(users_data);
@@ -191,18 +180,20 @@
         socket.on('roundTheme', (data) => {
             roundTheme = data.current_theme.question_title;
             document.getElementById("theme-round-id").innerHTML = roundTheme;
+            
+            console.log(data.answers_data);
 
             renderQuestions(data.answers_data);
         });
 
-        ///////// Listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('questions_form');
-            const inputs = form.querySelectorAll('input');
+        socket.on('roundServerFinish', () => {
+            data = postQuestionsResult();
+            socket.emit('roundServerFinish', data);
+        });
 
-            inputs.forEach(input => {
-                input.addEventListener('input', validateForm);
-            });
+        socket.on('serverFinishEvaluation', () => {
+            socket.emit('serverFinishEvaluation', votes);
+            votes = [];
         });
 
 
@@ -212,8 +203,7 @@
         }
 
         function finishRound () {
-            data = postQuestionsResult();
-            socket.emit('finishRound', data);
+            socket.emit('finishRound');
         }
 
         function finishEvaluating() {
@@ -257,7 +247,7 @@
             submitButton.disabled = !allValid;
         }
 
-        function updateRoundAndLetter() {
+        function updateRoundAndLetter(roundLetter, currentRound) {
             const letterItem = document.getElementById("random-letter-item");
             letterItem.innerHTML = roundLetter;
 
@@ -317,14 +307,8 @@
             } else {
                 document.getElementById("round-play").style.display = "flex";
                 document.getElementById("round-evaluating").style.display = "none";
-                document.getElementById("stop-evaluating-button").style.display = "none";
+                // document.getElementById("stop-evaluating-button").style.display = "none";
             }
-        }
-
-        function handleVotes() {
-            // let tempObj = {
-            //     ""
-            // }
         }
 
         function renderQuestions(questions) {
@@ -351,13 +335,25 @@
                 okButton.type = "button";
                 okButton.className = "btn btn-sm btn-primary";
                 okButton.textContent = "OK";
-                okButton.onclick = function() { handleVotes('OK', question.question_id); };
+                okButton.onclick = function() { 
+                    div.className = "p-4 bg-success rounded-3 position-relative"
+                    handleVotes(
+                    question.question_id, question.room_id, 
+                    question.round, question.question_value, 
+                    question.user_id, "OK"); 
+                };
 
                 var nokButton = document.createElement('button');
                 nokButton.type = "button";
                 nokButton.className = "btn btn-sm btn-danger";
                 nokButton.textContent = "NOK";
-                nokButton.onclick = function() { handleVotes('NOK', question.question_id); };
+                nokButton.onclick = function() {
+                    div.className = "p-4 bg-danger rounded-3 position-relative"
+                    handleVotes(
+                    question.question_id, question.room_id, 
+                    question.round, question.question_value, 
+                    question.user_id, "NOK"); 
+                };
 
                 buttonsDiv.appendChild(okButton);
                 buttonsDiv.appendChild(nokButton);
@@ -369,6 +365,69 @@
                 container.appendChild(div);
             });
         }
+    
+        function handleVotes(
+            question_id, 
+            room_id, 
+            round, 
+            question_value,
+            author_answer_user_id,
+            vote
+        ) {
+            const index = votes.findIndex(item => (
+                item.question_value === question_value && 
+                item.author_answer_user_id === author_answer_user_id));
+
+            if (index !== -1) {
+                votes[index].vote = vote === "OK" ? 1 : -1;
+            } else {
+                const voteObj = {
+                    question_id: question_id,
+                    room_id: room_id,
+                    round: round,
+                    question_value: question_value,
+                    author_answer_user_id: author_answer_user_id,
+                    vote: vote === "OK" ? 1 : -1,
+                };
+                
+                votes.push(voteObj);
+            }
+
+            console.log(votes);
+        }
+
+
+        ///////// Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('questions_form');
+            const inputs = form.querySelectorAll('input');
+
+            inputs.forEach(input => {
+                input.addEventListener('input', validateForm);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const okButtons = document.querySelectorAll('.btn-primary');
+            const nokButtons = document.querySelectorAll('.btn-danger');
+
+            okButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const word = this.parentElement.parentElement.querySelector('h1').textContent;
+                    const theme = document.getElementById('theme-round-id').textContent;
+                    handleVote(1, word, theme);
+                });
+            });
+
+            nokButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const word = this.parentElement.parentElement.querySelector('h1').textContent;
+                    const theme = document.getElementById('theme-round-id').textContent;
+                    handleVote(0, word, theme);
+                });
+            });
+        });
+
     </script>
 
 {% endblock %}
